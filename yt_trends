@@ -1,0 +1,299 @@
+	
+# Neeeded libraries
+import time
+import pandas as pd
+import googleapiclient.discovery as disc
+import googleapiclient.errors
+from sqlalchemy import create_engine
+ 
+# Main varibales such as Youtube API key and postgre connection
+youTubeApiKey="AIzaSyDriXgDrihcoqUKfU-UdiCxi6Cwhex_TJQ"
+youtube=disc.build("youtube","v3",developerKey=youTubeApiKey)
+ 
+engine = create_engine('postgresql://postgres:Lowe1997@35.229.67.150:5432/youtube_trends')
+ 
+ 
+# Data grabbing and processing script, it will output to a pandas dataframe and from there to the Youtube Trends database on GCloud premises
+         
+trends_data = youtube.videos().list(
+    part="snippet,statistics",
+    chart="mostPopular",
+    maxResults=50,
+    regionCode="DO"
+    ).execute()
+init_time = time.localtime() # get struct_time
+ 
+trends = {}
+for a in range(len(trends_data["items"])):
+    path1 = trends_data["items"][a]["snippet"]
+    temp1 = dict((k, path1[k]) for k in ["channelTitle", "title", "description", "categoryId"] if k in path1)
+    path2 = trends_data["items"][a]["statistics"]
+    if "commentCount" not in path2:
+        path2["commentCount"] = "0"
+    temp2 = dict((k.split("C")[0]+"s", path2[k]) for k in ["viewCount", "likeCount", "dislikeCount", 'commentCount'] if k in path2)
+    final_temp = {**temp1, **temp2}
+    final_temp["cover"] = trends_data["items"][a]["snippet"]["thumbnails"]["high"]["url"]
+    final_temp["rank"] = a+1
+    final_temp["url"] = "https://www.youtube.com/watch?v="+trends_data["items"][a]["id"]
+    trends[a] = final_temp
+trends = pd.DataFrame(trends, index=list(final_temp.keys()))
+trends = trends.transpose()
+trends.iloc[:,3:-3] = trends.iloc[:,3:-3].fillna(0)
+trends.iloc[:,3:-3] = trends.iloc[:,3:-3].astype(int)
+trends["reception"] = trends["likes"] / (trends["dislikes"]+1)
+trends["buzz"] = trends["comments"] / trends["views"]*1000
+trends["timestamp"] = time.strftime("%Y-%m-%d %I:%M%p", init_time)
+trends["timestamp"] = pd.to_datetime(trends["timestamp"])
+trends.columns = trends.columns.str.lower().to_list()
+trends.rename(columns={"channeltitle": "channel_title", "categoryid": "category_id"}, inplace=True)
+trends["id"] = time.strftime("%Y%m%d%H%M", init_time)+trends["rank"].apply('{:0>2}'.format)
+trends = trends[['rank', 'id', 'timestamp', 'channel_title', 'title', 'description', 'category_id', 'cover', 'url',  'views', 'likes', 'dislikes', 'comments', 'reception', 'buzz']]
+trends.to_sql("trends", engine, index=False, if_exists="append")
+ 
+ 
+music_data = youtube.videos().list(
+    part="snippet,statistics",
+    chart="mostPopular",
+    maxResults=50,
+    regionCode="DO",
+    videoCategoryId=10
+    ).execute()
+ 
+music = {}
+for a in range(len(music_data["items"])):
+    path1 = music_data["items"][a]["snippet"]
+    temp1 = dict((k, path1[k]) for k in ["channelTitle", "title", "description", "categoryId"] if k in path1)
+    path2 = music_data["items"][a]["statistics"]
+    if "commentCount" not in path2:
+        path2["commentCount"] = "0"
+    temp2 = dict((k.split("C")[0]+"s", path2[k]) for k in ["viewCount", "likeCount", "dislikeCount", 'commentCount'] if k in path2)
+    final_temp = {**temp1, **temp2}
+    final_temp["cover"] = music_data["items"][a]["snippet"]["thumbnails"]["high"]["url"]
+    final_temp["rank"] = a+1
+    final_temp["url"] = "https://www.youtube.com/watch?v="+music_data["items"][a]["id"]
+    music[a] = final_temp
+music = pd.DataFrame(music, index=list(final_temp.keys()))
+music = music.transpose()
+music.iloc[:,3:-3] = music.iloc[:,3:-3].fillna(0)
+music.iloc[:,3:-3] = music.iloc[:,3:-3].astype(int)
+music["reception"] = music["likes"] / (music["dislikes"]+1)
+music["buzz"] = music["comments"] / music["views"]*1000
+music["timestamp"] = time.strftime("%Y-%m-%d %I:%M%p", init_time)
+music["timestamp"] = pd.to_datetime(music["timestamp"])
+music.columns = music.columns.str.lower().to_list()
+music.rename(columns={"channeltitle": "channel_title", "categoryid": "category_id"}, inplace=True)
+music["id"] = time.strftime("%Y%m%d%H%M", init_time)+music["rank"].apply('{:0>2}'.format)
+music = music[['rank', 'id', 'timestamp', 'channel_title', 'title', 'description', 'category_id', 'cover', 'url',  'views', 'likes', 'dislikes', 'comments', 'reception', 'buzz']]
+music.to_sql("music", engine, index=False, if_exists="append")
+ 
+sports_data = youtube.videos().list(
+    part="snippet,statistics",
+    chart="mostPopular",
+    maxResults=50,
+    regionCode="DO",
+    videoCategoryId=17
+    ).execute()
+ 
+ 
+sports = {}
+for a in range(len(sports_data["items"])):
+    path1 = sports_data["items"][a]["snippet"]
+    temp1 = dict((k, path1[k]) for k in ["channelTitle", "title", "description", "categoryId"] if k in path1)
+    path2 = sports_data["items"][a]["statistics"]
+    if "commentCount" not in path2:
+        path2["commentCount"] = "0"
+    temp2 = dict((k.split("C")[0]+"s", path2[k]) for k in ["viewCount", "likeCount", "dislikeCount", 'commentCount'] if k in path2)
+    final_temp = {**temp1, **temp2}
+    final_temp["cover"] = sports_data["items"][a]["snippet"]["thumbnails"]["high"]["url"]
+    final_temp["rank"] = a+1
+    final_temp["url"] = "https://www.youtube.com/watch?v="+sports_data["items"][a]["id"]
+    sports[a] = final_temp
+sports = pd.DataFrame(sports, index=list(final_temp.keys()))
+sports = sports.transpose()
+sports.iloc[:,3:-3] = sports.iloc[:,3:-3].fillna(0)
+sports.iloc[:,3:-3] = sports.iloc[:,3:-3].astype(int)
+sports["reception"] = sports["likes"] / (sports["dislikes"]+1)
+sports["buzz"] = sports["comments"] / sports["views"]*1000
+sports["timestamp"] = time.strftime("%Y-%m-%d %I:%M%p", init_time)
+sports["timestamp"] = pd.to_datetime(sports["timestamp"])
+sports.columns = sports.columns.str.lower().to_list()
+sports.rename(columns={"channeltitle": "channel_title", "categoryid": "category_id"}, inplace=True)
+sports["id"] = time.strftime("%Y%m%d%H%M", init_time)+sports["rank"].apply('{:0>2}'.format)
+sports = sports[['rank', 'id', 'timestamp', 'channel_title', 'title', 'description', 'category_id', 'cover', 'url',  'views', 'likes', 'dislikes', 'comments', 'reception', 'buzz']]
+sports.to_sql("sports", engine, index=False, if_exists="append")
+ 
+animals_data = youtube.videos().list(
+    part="snippet,statistics",
+    chart="mostPopular",
+    maxResults=50,
+    regionCode="DO",
+    videoCategoryId=15
+    ).execute()
+ 
+animals = {}
+for a in range(len(animals_data["items"])):
+    path1 = animals_data["items"][a]["snippet"]
+    temp1 = dict((k, path1[k]) for k in ["channelTitle", "title", "description", "categoryId"] if k in path1)
+    path2 = animals_data["items"][a]["statistics"]
+    if "commentCount" not in path2:
+        path2["commentCount"] = "0"
+    temp2 = dict((k.split("C")[0]+"s", path2[k]) for k in ["viewCount", "likeCount", "dislikeCount", 'commentCount'] if k in path2)
+    final_temp = {**temp1, **temp2}
+    final_temp["cover"] = animals_data["items"][a]["snippet"]["thumbnails"]["high"]["url"]
+    final_temp["rank"] = a+1
+    final_temp["url"] = "https://www.youtube.com/watch?v="+animals_data["items"][a]["id"]
+    animals[a] = final_temp
+animals = pd.DataFrame(animals, index=list(final_temp.keys()))
+animals = animals.transpose()
+animals.iloc[:,3:-3] = animals.iloc[:,3:-3].fillna(0)
+animals.iloc[:,3:-3] = animals.iloc[:,3:-3].astype(int)
+animals["reception"] = animals["likes"] / (animals["dislikes"]+1)
+animals["buzz"] = animals["comments"] / animals["views"]*1000
+animals["timestamp"] = time.strftime("%Y-%m-%d %I:%M%p", init_time)
+animals["timestamp"] = pd.to_datetime(animals["timestamp"])
+animals.columns = animals.columns.str.lower().to_list()
+animals.rename(columns={"channeltitle": "channel_title", "categoryid": "category_id"}, inplace=True)
+animals["id"] = time.strftime("%Y%m%d%H%M", init_time)+animals["rank"].apply('{:0>2}'.format)
+animals = animals[['rank', 'id', 'timestamp', 'channel_title', 'title', 'description', 'category_id', 'cover', 'url',  'views', 'likes', 'dislikes', 'comments', 'reception', 'buzz']]
+animals.to_sql("animals", engine, index=False, if_exists="append")
+ 
+ 
+gaming_data = youtube.videos().list(
+    part="snippet,statistics",
+    chart="mostPopular",
+    maxResults=50,
+    regionCode="DO",
+    videoCategoryId=20
+    ).execute()
+ 
+gaming = {}
+for a in range(len(gaming_data["items"])):
+    path1 = gaming_data["items"][a]["snippet"]
+    temp1 = dict((k, path1[k]) for k in ["channelTitle", "title", "description", "categoryId"] if k in path1)
+    path2 = gaming_data["items"][a]["statistics"]
+    if "commentCount" not in path2:
+        path2["commentCount"] = "0"
+    temp2 = dict((k.split("C")[0]+"s", path2[k]) for k in ["viewCount", "likeCount", "dislikeCount", 'commentCount'] if k in path2)
+    final_temp = {**temp1, **temp2}
+    final_temp["cover"] = gaming_data["items"][a]["snippet"]["thumbnails"]["high"]["url"]
+    final_temp["rank"] = a+1
+    final_temp["url"] = "https://www.youtube.com/watch?v="+gaming_data["items"][a]["id"]
+    gaming[a] = final_temp
+gaming = pd.DataFrame(gaming, index=list(final_temp.keys()))
+gaming = gaming.transpose()
+gaming.iloc[:,3:-3] = gaming.iloc[:,3:-3].fillna(0)
+gaming.iloc[:,3:-3] = gaming.iloc[:,3:-3].astype(int)
+gaming["reception"] = gaming["likes"] / (gaming["dislikes"]+1)
+gaming["buzz"] = gaming["comments"] / gaming["views"]*1000
+gaming["timestamp"] = time.strftime("%Y-%m-%d %I:%M%p", init_time)
+gaming["timestamp"] = pd.to_datetime(gaming["timestamp"])
+gaming.columns = gaming.columns.str.lower().to_list()
+gaming.rename(columns={"channeltitle": "channel_title", "categoryid": "category_id"}, inplace=True)
+gaming["id"] = time.strftime("%Y%m%d%H%M", init_time)+gaming["rank"].apply('{:0>2}'.format)
+gaming = gaming[['rank', 'id', 'timestamp', 'channel_title', 'title', 'description', 'category_id', 'cover', 'url',  'views', 'likes', 'dislikes', 'comments', 'reception', 'buzz']]
+gaming.to_sql("gaming", engine, index=False, if_exists="append")
+ 
+comedy_data = youtube.videos().list(
+    part="snippet,statistics",
+    chart="mostPopular",
+    maxResults=50,
+    regionCode="DO",
+    videoCategoryId=23
+    ).execute()
+ 
+comedy = {}
+for a in range(len(comedy_data["items"])):
+    path1 = comedy_data["items"][a]["snippet"]
+    temp1 = dict((k, path1[k]) for k in ["channelTitle", "title", "description", "categoryId"] if k in path1)
+    path2 = comedy_data["items"][a]["statistics"]
+    if "commentCount" not in path2:
+        path2["commentCount"] = "0"
+    temp2 = dict((k.split("C")[0]+"s", path2[k]) for k in ["viewCount", "likeCount", "dislikeCount", 'commentCount'] if k in path2)
+    final_temp = {**temp1, **temp2}
+    final_temp["cover"] = comedy_data["items"][a]["snippet"]["thumbnails"]["high"]["url"]
+    final_temp["rank"] = a+1
+    final_temp["url"] = "https://www.youtube.com/watch?v="+comedy_data["items"][a]["id"]
+    comedy[a] = final_temp
+comedy = pd.DataFrame(comedy, index=list(final_temp.keys()))
+comedy = comedy.transpose()
+comedy.iloc[:,3:-3] = comedy.iloc[:,3:-3].fillna(0)
+comedy.iloc[:,3:-3] = comedy.iloc[:,3:-3].astype(int)
+comedy["reception"] = comedy["likes"] / (comedy["dislikes"]+1)
+comedy["buzz"] = comedy["comments"] / comedy["views"]*1000
+comedy["timestamp"] = time.strftime("%Y-%m-%d %I:%M%p", init_time)
+comedy["timestamp"] = pd.to_datetime(comedy["timestamp"])
+comedy.columns = comedy.columns.str.lower().to_list()
+comedy.rename(columns={"channeltitle": "channel_title", "categoryid": "category_id"}, inplace=True)
+comedy["id"] = time.strftime("%Y%m%d%H%M", init_time)+comedy["rank"].apply('{:0>2}'.format)
+comedy = comedy[['rank', 'id', 'timestamp', 'channel_title', 'title', 'description', 'category_id', 'cover', 'url',  'views', 'likes', 'dislikes', 'comments', 'reception', 'buzz']]
+comedy.to_sql("comedy", engine, index=False, if_exists="append")
+ 
+entertainment_data = youtube.videos().list(
+    part="snippet,statistics",
+    chart="mostPopular",
+    maxResults=50,
+    regionCode="DO",
+    videoCategoryId=24
+    ).execute()
+ 
+entertainment = {}
+for a in range(len(entertainment_data["items"])):
+    path1 = entertainment_data["items"][a]["snippet"]
+    temp1 = dict((k, path1[k]) for k in ["channelTitle", "title", "description", "categoryId"] if k in path1)
+    path2 = entertainment_data["items"][a]["statistics"]
+    if "commentCount" not in path2:
+        path2["commentCount"] = "0"
+    temp2 = dict((k.split("C")[0]+"s", path2[k]) for k in ["viewCount", "likeCount", "dislikeCount", 'commentCount'] if k in path2)
+    final_temp = {**temp1, **temp2}
+    final_temp["cover"] = entertainment_data["items"][a]["snippet"]["thumbnails"]["high"]["url"]
+    final_temp["rank"] = a+1
+    final_temp["url"] = "https://www.youtube.com/watch?v="+entertainment_data["items"][a]["id"]
+    entertainment[a] = final_temp
+entertainment = pd.DataFrame(entertainment, index=list(final_temp.keys()))
+entertainment = entertainment.transpose()
+entertainment.iloc[:,3:-3] = entertainment.iloc[:,3:-3].fillna(0)
+entertainment.iloc[:,3:-3] = entertainment.iloc[:,3:-3].astype(int)
+entertainment["reception"] = entertainment["likes"] / (entertainment["dislikes"]+1)
+entertainment["buzz"] = entertainment["comments"] / entertainment["views"]*1000
+entertainment["timestamp"] = time.strftime("%Y-%m-%d %I:%M%p", init_time)
+entertainment["timestamp"] = pd.to_datetime(entertainment["timestamp"])
+entertainment.columns = entertainment.columns.str.lower().to_list()
+entertainment.rename(columns={"channeltitle": "channel_title", "categoryid": "category_id"}, inplace=True)
+entertainment["id"] = time.strftime("%Y%m%d%H%M", init_time)+entertainment["rank"].apply('{:0>2}'.format)
+entertainment = entertainment[['rank', 'id', 'timestamp', 'channel_title', 'title', 'description', 'category_id', 'cover', 'url',  'views', 'likes', 'dislikes', 'comments', 'reception', 'buzz']]
+entertainment.to_sql("entertainment", engine, index=False, if_exists="append")
+ 
+tech_data = youtube.videos().list(
+    part="snippet,statistics",
+    chart="mostPopular",
+    maxResults=50,
+    regionCode="DO",
+    videoCategoryId=28
+    ).execute()
+ 
+tech = {}
+for a in range(len(tech_data["items"])):
+    path1 = tech_data["items"][a]["snippet"]
+    temp1 = dict((k, path1[k]) for k in ["channelTitle", "title", "description", "categoryId"] if k in path1)
+    path2 = tech_data["items"][a]["statistics"]
+    if "commentCount" not in path2:
+        path2["commentCount"] = "0"
+    temp2 = dict((k.split("C")[0]+"s", path2[k]) for k in ["viewCount", "likeCount", "dislikeCount", 'commentCount'] if k in path2)
+    final_temp = {**temp1, **temp2}
+    final_temp["cover"] = tech_data["items"][a]["snippet"]["thumbnails"]["high"]["url"]
+    final_temp["rank"] = a+1
+    final_temp["url"] = "https://www.youtube.com/watch?v="+tech_data["items"][a]["id"]
+    tech[a] = final_temp
+tech = pd.DataFrame(tech, index=list(final_temp.keys()))
+tech = tech.transpose()
+tech.iloc[:,3:-3] = tech.iloc[:,3:-3].fillna(0)
+tech.iloc[:,3:-3] = tech.iloc[:,3:-3].astype(int)
+tech["reception"] = tech["likes"] / (tech["dislikes"]+1)
+tech["buzz"] = tech["comments"] / tech["views"]*1000
+tech["timestamp"] = time.strftime("%Y-%m-%d %I:%M%p", init_time)
+tech["timestamp"] = pd.to_datetime(tech["timestamp"])
+tech.columns = tech.columns.str.lower().to_list()
+tech.rename(columns={"channeltitle": "channel_title", "categoryid": "category_id"}, inplace=True)
+tech["id"] = time.strftime("%Y%m%d%H%M", init_time)+tech["rank"].apply('{:0>2}'.format)
+tech = tech[['rank', 'id', 'timestamp', 'channel_title', 'title', 'description', 'category_id', 'cover', 'url',  'views', 'likes', 'dislikes', 'comments', 'reception', 'buzz']]
+tech.to_sql("tech", engine, index=False, if_exists="append")
