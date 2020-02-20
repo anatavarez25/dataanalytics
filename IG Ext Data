@@ -1,0 +1,246 @@
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+	
+import requests as rs
+import pandas as pd
+import regex
+import re
+import emoji
+import nltk
+from nltk.corpus import stopwords
+from datetime import datetime
+ 
+def get_profiles_info():
+    '''Get the profile info from every username'''
+    data = []
+    for a in range(len(USERNAMES)):
+        url = ("https://graph.facebook.com/v5.0/17841401726234706?fields=business_discovery.username"
+               "("+USERNAMES[a]+"){username,biography,followers_count,media_count,id,website}&access"
+               "_token="+TOKEN)
+        info = rs.get(url)
+        table = info.json()["business_discovery"]
+        data.append(table)
+    profile_info = pd.DataFrame(data, columns=data[0].keys())
+    return profile_info
+ 
+def get_posts_data():
+    '''Get all the specified posts from the specified usernames'''
+    data = []
+    for a in range(len(USERNAMES)):
+        url = ("https://graph.facebook.com/v5.0/17841401726234706"
+            "?fields=business_discovery.username("+USERNAMES[a]+"){media.limit("+str(NUMERO_POSTS)+")"
+            "{username,timestamp,media_type,caption,media_url,like_count,comments_count,permalink,id}}"
+            "&access_token="+TOKEN)
+        info = rs.get(url)
+        table = info.json()["business_discovery"]["media"]["data"]
+        data.extend(table)
+    profile_media = pd.DataFrame(data, columns=data[0].keys())
+    profile_media['timestamp'] = pd.to_datetime(profile_media['timestamp'], format='%Y-%m-%d %H:%M:%S')
+    profile_media['timestamp'] = profile_media['timestamp'].dt.tz_convert('America/Santo_Domingo')
+    profile_media['timestamp'] = profile_media['timestamp'].dt.tz_localize(None)
+    return profile_media, data
+ 
+#extract all words from posts
+def extract_words(data):
+    '''Extract all the individual words from the post captions'''
+    post_words = []
+    word_likes = []
+    word_com = []
+    word_user = []
+    word_fecha = []
+    stop_words = set(stopwords.words("spanish"))
+ 
+    for a in range(len(data)):
+        try:
+            sepaTemp = re.findall("\s*([$#%\w-]+)",data[a]["caption"])
+        except:
+            sepaTemp = ""
+        for b in range(len(sepaTemp)):
+            if sepaTemp[b].lower() not in stop_words:
+                post_words.append(sepaTemp[b])
+                word_likes.append(data[a]["like_count"])
+                word_com.append(data[a]["comments_count"])
+                word_user.append(data[a]["username"])
+                word_fecha.append(data[a]["timestamp"])
+ 
+ 
+    post_wordlist = pd.DataFrame([post_words, word_likes, word_com, word_user, word_fecha], ["palabras", "likes", "comments", "username", "timestamp"])
+    post_wordlist = pd.DataFrame.transpose(post_wordlist)
+    return post_wordlist
+ 
+def split_count(text):
+    emoji_list = []
+#     flags = regex.findall(u'[\U0001F1E6-\U0001F1FF]', text) 
+    data = regex.findall(r'\X', text)
+    for word in data:
+        if any(char in emoji.UNICODE_EMOJI for char in word):
+            emoji_list.append(word)
+    return emoji_list
+ 
+def extract_emoji(data):
+    '''Extract emoji from captions'''
+    post_emoji = []
+    emoji_user = []
+    emoji_engage = []
+    emoji_fecha = []
+    for a in range(len(data)):
+        try:
+            temp = split_count(data[a]["caption"])
+            for b in temp:
+                post_emoji.append(b)
+                emoji_engage.append(data[a]["like_count"]+data[a]["comments_count"])
+                emoji_user.append(data[a]["USERNAMES"])
+                emoji_fecha.append(data[a]["timestamp"])
+        except:
+            pass
+ 
+    post_emojilist = pd.DataFrame([emoji_fecha, emoji_user, post_emoji, emoji_engage], ["timestamp", "username", "emoji", "engagements"])
+    post_emojilist = pd.DataFrame.transpose(post_emojilist)
+    return post_emojilist
+ 
+def main():
+    '''Main function'''
+    profile_info = get_profiles_info()
+    profile_media, raw_data = get_posts_data()
+    post_wordlist = extract_words(raw_data)
+    post_emojilist = extract_emoji(raw_data)
+    timestamp = str(datetime.now().date())
+    writer = pd.ExcelWriter("external_IG_"+CLIENTE+'_'+timestamp+".xlsx", engine = 'xlsxwriter')
+    profile_info.to_excel(writer, sheet_name="IG competition profiles", index=None, header=True)
+    profile_media.to_excel(writer, sheet_name="IG competition media", index=None, header=True)
+    post_wordlist.to_excel(writer, sheet_name="IG competition words", index=None, header=True)
+    post_emojilist.to_excel(writer, sheet_name="IG competition emoji", index=None, header=True)
+    writer.save()
+    writer.close()
+ 
+ 
+TOKEN = "EAADhbHEHmlABAGwSGI1mpq5XCCwFtg3Not5QYB7EisDw9qw21jzI3UZCRtQ0jkbfE231BFyTPc5XEUeOMHQ9IkhaK4buUjb74Yw8xwAqZArczRZCdZB4ME1G7R1ZAsKZBqAZC2KzgDo1NL0DCUAC886hIZBk1tUQJg8H0bicZC36dDQZDZD"
+# USERNAMES = ["elsnack.report"]
+# USERNAMES = ["madeinchinard", "asianmarketrd", "takumird", "zenkitchenrd", "samuraird", "pfchangsrd"]
+USERNAMES = ["diariolibre"]
+# CLIENTE = "pf_changs"
+CLIENTE = "diariolibre"
+NUMERO_POSTS = 10
+ 
+main()
